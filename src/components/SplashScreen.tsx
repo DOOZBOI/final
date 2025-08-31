@@ -32,10 +32,10 @@ const videoUrls = [
 export function SplashScreen({ onLoadComplete }: SplashScreenProps) {
   const [progress, setProgress] = useState(0);
   const [loadingText, setLoadingText] = useState('LOADING');
-  const [videosLoaded, setVideosLoaded] = useState(0);
+  const [thumbnailsGenerated, setThumbnailsGenerated] = useState(0);
 
   useEffect(() => {
-    const loadingTexts = ['LOADING', 'PREPARING', 'PRELOADING', 'OPTIMIZING', 'CRAFTING', 'BUILDING'];
+    const loadingTexts = ['LOADING', 'PREPARING', 'GENERATING', 'OPTIMIZING', 'CRAFTING', 'BUILDING'];
     let textIndex = 0;
     
     const textInterval = setInterval(() => {
@@ -43,60 +43,71 @@ export function SplashScreen({ onLoadComplete }: SplashScreenProps) {
       setLoadingText(loadingTexts[textIndex]);
     }, 400);
 
-    // Preload video thumbnails
-    const preloadVideos = async () => {
+    // Generate video thumbnails
+    const generateThumbnails = async () => {
       const videoPromises = videoUrls.map((url, index) => {
         return new Promise<void>((resolve) => {
           const video = document.createElement('video');
-          video.preload = 'metadata';
+          video.preload = 'none';
           video.crossOrigin = 'anonymous';
+          video.muted = true;
+          video.volume = 0;
           
           const handleLoad = () => {
-            setVideosLoaded(prev => prev + 1);
+            // Seek to 1 second for thumbnail
+            video.currentTime = 1;
+          };
+          
+          const handleSeeked = () => {
+            setThumbnailsGenerated(prev => prev + 1);
             cleanup();
             resolve();
           };
           
           const handleError = () => {
-            console.warn(`Failed to preload video: ${url}`);
-            setVideosLoaded(prev => prev + 1);
+            console.warn(`Failed to generate thumbnail for: ${url}`);
+            setThumbnailsGenerated(prev => prev + 1);
             cleanup();
             resolve();
           };
           
           const cleanup = () => {
-            video.removeEventListener('loadedmetadata', handleLoad);
+            video.removeEventListener('loadeddata', handleLoad);
+            video.removeEventListener('seeked', handleSeeked);
             video.removeEventListener('error', handleError);
             video.remove();
           };
           
-          video.addEventListener('loadedmetadata', handleLoad);
+          video.addEventListener('loadeddata', handleLoad);
+          video.addEventListener('seeked', handleSeeked);
           video.addEventListener('error', handleError);
           
-          // Set a timeout to prevent hanging
+          // Shorter timeout for thumbnail generation
           setTimeout(() => {
-            if (video.readyState < 1) {
+            if (video.readyState < 2) {
               handleError();
             }
-          }, 3000);
+          }, 1500);
           
           video.src = url;
+          video.load();
         });
       });
       
-      // Wait for all videos to load or timeout
+      // Wait for all thumbnails to generate or timeout
       await Promise.all(videoPromises);
     };
 
-    // Start video preloading
-    preloadVideos();
+    // Start thumbnail generation
+    generateThumbnails();
+    
     const progressInterval = setInterval(() => {
       setProgress(prev => {
-        const videoProgress = (videosLoaded / videoUrls.length) * 60; // Videos contribute 60% of progress
-        const baseProgress = Math.min(prev + Math.random() * 8 + 2, 40); // Base loading contributes 40%
-        const totalProgress = Math.min(baseProgress + videoProgress, 100);
+        const thumbnailProgress = (thumbnailsGenerated / videoUrls.length) * 70; // Thumbnails contribute 70% of progress
+        const baseProgress = Math.min(prev + Math.random() * 12 + 3, 30); // Base loading contributes 30%
+        const totalProgress = Math.min(baseProgress + thumbnailProgress, 100);
         
-        if (totalProgress >= 100 && videosLoaded >= videoUrls.length * 0.8) { // Allow completion when 80% of videos are loaded
+        if (totalProgress >= 100 && thumbnailsGenerated >= videoUrls.length * 0.7) { // Allow completion when 70% of thumbnails are generated
           clearInterval(progressInterval);
           clearInterval(textInterval);
           setTimeout(() => onLoadComplete(), 500);
@@ -110,7 +121,7 @@ export function SplashScreen({ onLoadComplete }: SplashScreenProps) {
       clearInterval(progressInterval);
       clearInterval(textInterval);
     };
-  }, [onLoadComplete, videosLoaded]);
+  }, [onLoadComplete, thumbnailsGenerated]);
 
   return (
     <div className="fixed inset-0 bg-black z-50 flex items-center justify-center">
@@ -138,7 +149,7 @@ export function SplashScreen({ onLoadComplete }: SplashScreenProps) {
             {loadingText}... {Math.round(progress)}%
           </p>
           <p className="text-white/40 font-bosenAlt text-xs mt-1 tracking-wide">
-            VIDEOS: {videosLoaded}/{videoUrls.length}
+            THUMBNAILS: {thumbnailsGenerated}/{videoUrls.length}
           </p>
         </div>
 

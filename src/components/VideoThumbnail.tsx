@@ -43,7 +43,7 @@ export function VideoThumbnail({
         }
       },
       { 
-        rootMargin: '50px', // Reduced from 200px to prevent too early loading
+        rootMargin: '100px',
         threshold: 0.1
       }
     );
@@ -53,17 +53,18 @@ export function VideoThumbnail({
     return () => observer.disconnect();
   }, []);
 
-  // Load video when in view but don't autoplay
+  // Setup video for thumbnail display when in view
   useEffect(() => {
     if (isInView && videoRef.current && !videoLoaded && !hasInteracted) {
       const video = videoRef.current;
-      video.src = src;
-      video.preload = 'metadata';
+      video.src = src; 
+      video.preload = 'metadata'; // Only load metadata for thumbnail
+      video.muted = true;
+      video.volume = 0;
       
-      // Check if video is already cached from preloading
       const handleLoadedMetadata = () => {
         setVideoLoaded(true);
-        // Seek to 1 second for better thumbnail
+        // Seek to 1 second for thumbnail frame
         video.currentTime = 1;
       };
       
@@ -85,6 +86,13 @@ export function VideoThumbnail({
       setIsPlaying(false);
     } else {
       setIsLoading(true);
+      
+      // Ensure video is fully loaded before playing
+      if (!videoRef.current.src || videoRef.current.readyState < 2) {
+        videoRef.current.src = src;
+        videoRef.current.preload = 'auto'; // Load full video for playback
+        videoRef.current.load();
+      }
       
       try {
         await videoRef.current.play();
@@ -138,10 +146,9 @@ export function VideoThumbnail({
           } transition-opacity duration-300 ${videoLoaded ? 'opacity-100' : 'opacity-0'}`}
           loop={isShowreel}
           playsInline
-          preload="metadata" // Only load metadata for thumbnail
+          muted
           onLoadedData={() => {
             setVideoLoaded(true);
-            // Seek to 1 second for better thumbnail
             if (videoRef.current && !hasInteracted) {
               videoRef.current.currentTime = 1;
             }
