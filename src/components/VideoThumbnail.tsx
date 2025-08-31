@@ -43,7 +43,7 @@ export function VideoThumbnail({
         }
       },
       { 
-        rootMargin: '100px',
+        rootMargin: '50px', // Reduced from 200px to prevent too early loading
         threshold: 0.1
       }
     );
@@ -53,29 +53,14 @@ export function VideoThumbnail({
     return () => observer.disconnect();
   }, []);
 
-  // Setup video for thumbnail display when in view
+  // Load video when in view but don't autoplay
   useEffect(() => {
-    if (isInView && videoRef.current && !videoLoaded && !hasInteracted) {
+    if (isInView && videoRef.current && !videoLoaded) {
       const video = videoRef.current;
-      video.src = src; 
-      video.preload = 'metadata'; // Only load metadata for thumbnail
-      video.muted = true;
-      video.volume = 0;
-      
-      const handleLoadedMetadata = () => {
-        setVideoLoaded(true);
-        // Seek to 1 second for thumbnail frame
-        video.currentTime = 1;
-      };
-      
-      video.addEventListener('loadedmetadata', handleLoadedMetadata, { once: true });
+      video.src = src;
       video.load();
-      
-      return () => {
-        video.removeEventListener('loadedmetadata', handleLoadedMetadata);
-      };
     }
-  }, [isInView, src, videoLoaded, hasInteracted]);
+  }, [isInView, src, videoLoaded]);
 
   const handleClick = async () => {
     if (!videoRef.current) return;
@@ -86,13 +71,6 @@ export function VideoThumbnail({
       setIsPlaying(false);
     } else {
       setIsLoading(true);
-      
-      // Ensure video is fully loaded before playing
-      if (!videoRef.current.src || videoRef.current.readyState < 2) {
-        videoRef.current.src = src;
-        videoRef.current.preload = 'auto'; // Load full video for playback
-        videoRef.current.load();
-      }
       
       try {
         await videoRef.current.play();
@@ -146,17 +124,12 @@ export function VideoThumbnail({
           } transition-opacity duration-300 ${videoLoaded ? 'opacity-100' : 'opacity-0'}`}
           loop={isShowreel}
           playsInline
-          muted
+          preload="metadata" // Only load metadata for thumbnail
           onLoadedData={() => {
             setVideoLoaded(true);
-            if (videoRef.current && !hasInteracted) {
-              videoRef.current.currentTime = 1;
-            }
-          }}
-          onLoadedMetadata={() => {
-            setVideoLoaded(true);
-            if (videoRef.current && !hasInteracted) {
-              videoRef.current.currentTime = 1;
+            // Seek to 1 second for better thumbnail
+            if (videoRef.current && !hasInteracted) { 
+              videoRef.current.currentTime = 0;
             }
           }}
           onPlay={() => {
