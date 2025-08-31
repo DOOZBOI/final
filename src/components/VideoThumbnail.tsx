@@ -55,12 +55,26 @@ export function VideoThumbnail({
 
   // Load video when in view but don't autoplay
   useEffect(() => {
-    if (isInView && videoRef.current && !videoLoaded) {
+    if (isInView && videoRef.current && !videoLoaded && !hasInteracted) {
       const video = videoRef.current;
       video.src = src;
+      video.preload = 'metadata';
+      
+      // Check if video is already cached from preloading
+      const handleLoadedMetadata = () => {
+        setVideoLoaded(true);
+        // Seek to 1 second for better thumbnail
+        video.currentTime = 1;
+      };
+      
+      video.addEventListener('loadedmetadata', handleLoadedMetadata, { once: true });
       video.load();
+      
+      return () => {
+        video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      };
     }
-  }, [isInView, src, videoLoaded]);
+  }, [isInView, src, videoLoaded, hasInteracted]);
 
   const handleClick = async () => {
     if (!videoRef.current) return;
@@ -128,8 +142,14 @@ export function VideoThumbnail({
           onLoadedData={() => {
             setVideoLoaded(true);
             // Seek to 1 second for better thumbnail
-            if (videoRef.current && !hasInteracted) { 
-              videoRef.current.currentTime = 0;
+            if (videoRef.current && !hasInteracted) {
+              videoRef.current.currentTime = 1;
+            }
+          }}
+          onLoadedMetadata={() => {
+            setVideoLoaded(true);
+            if (videoRef.current && !hasInteracted) {
+              videoRef.current.currentTime = 1;
             }
           }}
           onPlay={() => {
