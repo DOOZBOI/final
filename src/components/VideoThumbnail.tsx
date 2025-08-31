@@ -43,7 +43,7 @@ export function VideoThumbnail({
         }
       },
       { 
-        rootMargin: '50px', // Reduced from 200px to prevent too early loading
+        rootMargin: '100px',
         threshold: 0.1
       }
     );
